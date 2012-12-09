@@ -4,7 +4,6 @@ open Printf ;;
 open Postgresql ;;
 
 
-
 (* check for options of yadi command line *)
 let _ =
   if Array.length Sys.argv <> 2 then (
@@ -22,19 +21,6 @@ let _ =
       Example:\n\
         \t yadi \"host=localhost port=5432 user=test password=test dbname=test_db\"\n";
     exit 1)
-;;
-(*
-(*To print all the line in particular file at the destination defined in filecontents*)
-
-let print_all_lines f =
-let ic = open_in f in
-let n = in_channel_length ic in
-let s = String.create n in
-really_input ic s 0 n;
-close_in ic;
-s
-*)
-let filecontents = "/home/arpaporns/yadi-0.2/filename.txt"
 ;;
 
 (* assign postgreSQL connection parameters to conninfo variable *)
@@ -72,32 +58,12 @@ let print_res conn res =
   | _ 			-> failwith "error: unexpected status"
 ;;
 
-
 (* catch answers from the db server *)
 let rec dump_res conn =
   match conn#get_result with
   | Some res -> print_res conn res; flush stdout; dump_res conn
   | None -> ()
-
-let rec dump_notification conn =
-  match conn#notifies with
-  | Some (msg, pid) ->
-      printf "Notication from backend %i: [%s]\n" pid msg;
-      flush stdout;
-      dump_notification conn
-  | None -> ()
-
-let listener conn =
-  try
-    while true do
-      let socket : Unix.file_descr = Obj.magic conn#socket in
-      let _ = Unix.select [socket] [] [] 1. in
-      conn#consume_input;
-      dump_notification conn
-    done
-  with
-  | Error e -> prerr_endline (string_of_error e)
-  | e -> prerr_endline (Printexc.to_string e)
+;;
 
 (* everything is done here *)
 let main () =
@@ -106,22 +72,17 @@ let main () =
   c#set_notice_processor (fun s -> eprintf "postgresql error [%s]\n" s);
   try 
    let lexbuf = Lexing.from_channel stdin in 
-(*To read the query from file as input instead of user key in*)
-(*let lexbuf = Lexing.from_string (print_all_lines filecontents) in*)
     while true do
 	    print_string "yadi$ "; flush stdout;
     	let ast = Parser.main Lexer.token lexbuf in 
 	    print_endline (Expr.to_string ast); flush stdout;
-	    let sql = (if Eval.is_prog ast then Eval.sql_stt ast else invalid_arg "main" ) in print_endline(sql);
-(*	    let sql = "hello" in print_endline(sql); *)
+	    let sql = (if Eval.is_prog ast then Eval.sql_stt ast else invalid_arg "main" ) in
 	    c#send_query sql;
 	    dump_res c
-        done
+	done
 with Eof ->
    c#finish; exit 0
 ;; 
-
-
 
 (* mainly a call to the above main function *)
 let _ =
